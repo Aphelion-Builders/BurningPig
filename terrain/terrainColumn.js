@@ -4,7 +4,7 @@ function TerrainColumn(x, z) {
     this.x = x;
     this.z = z
 
-    //chunks in Y order, 0-256. No chunk entry means all air
+    //chunks in Y order, 0-16 No chunk entry means all air
     this.chunks = [];
 
     this.heightmap = new Buffer(256);
@@ -22,6 +22,7 @@ function TerrainColumn(x, z) {
 }
 
 TerrainColumn.prototype.getNewChunk = function (y) {
+    this.metadata.primaryBitmap |= 1 << y;
     return new Chunk(y);
 };
 
@@ -36,26 +37,37 @@ TerrainColumn.prototype.generateTestColumn = function () {
 TerrainColumn.prototype.getBlock = function (position) {
     var chunk = Math.floor(position.y / 16);
     var chunkY = position.y % 16;
-    var blockIndex = position.x + (position.z * 16) + (chunkY * 256);
 
-    return this.chunks[chunk].getBlock(blockIndex);
+    console.log('chunk: ' + chunk);
+    return this.chunks[chunk].getBlock(position.x, chunkY, position.z);
 };
 
 TerrainColumn.prototype.setBlock = function (position, blockData) {
     var chunk = Math.floor(position.y / 16);
     var chunkY = position.y % 16;
-    var blockIndex = position.x + (position.z * 16) + (chunkY * 256);
 
     this.isSaved = false;
 
-    this.chunks[chunk].setBlock(blockIndex, blockData);
+    console.log(position);
+
+    if(!this.chunks[chunk]) {
+        console.log('Created new chunk at: ' + chunk);
+        this.chunks[chunk] = this.getNewChunk(chunk);
+    }
+
+    this.chunks[chunk].setBlock(position.x, chunkY, position.z, blockData);
 };
 
 TerrainColumn.prototype.getTransmissionBuffer = function () {
     var b = [], m = [], l = [], s = [];
     var totalLength = 0;
 
-    for (var i = 0; i < this.chunks.length; i++) {
+    //console.log(this.chunks.length);
+    for (var i = 0; i < 16; i++) {
+        if(!this.chunks[i]) {
+            continue;
+        }
+
         b.push(this.chunks[i].blocks);
         totalLength += this.chunks[i].blocks.length;
         m.push(this.chunks[i].metadata);

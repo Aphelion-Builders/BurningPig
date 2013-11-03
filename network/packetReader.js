@@ -105,7 +105,9 @@ var PacketReader = function () {
             face: binaryReader.readByte(),
         };
 
-        return { type: 'player_digging', data: data };
+        var types = [ 'digging_start', 'digging_cancelled', 'digging_done'];
+
+        return { type: types[data.status], data: data };
     };
 
     parsers[0x0F] = function (binaryReader) {
@@ -147,10 +149,23 @@ var PacketReader = function () {
         var data = {
             type: binaryReader.readByte(),
             entityId: binaryReader.readInt(),
-            action: binaryReader.readByte(),
+            actionId: binaryReader.readByte(),
+            jumpBoost: binaryReader.readInt()
         };
 
         return { type: 'entity_action', data: data };
+    };
+
+    parsers[0x1B] = function (binaryReader) {
+        var data = {
+            type: binaryReader.readByte(),
+            sideways: binaryReader.readFloat(),
+            forward: binaryReader.readFloat(),
+            jump: binaryReader.readBool(),
+            unmount: binaryReader.readBool(),
+        };
+
+        return { type: 'steer_vehicle', data: data };
     };
 
     parsers[0x65] = function (binaryReader) {
@@ -226,8 +241,8 @@ var PacketReader = function () {
         var data = {
             type: binaryReader.readByte(),
             flags: binaryReader.readByte(),
-            flyingSpeed: binaryReader.readByte(),
-            walkingSpeed: binaryReader.readByte(),
+            flyingSpeed: binaryReader.readFloat(),
+            walkingSpeed: binaryReader.readFloat(),
         };
 
         return { type: 'player_abilities', data: data };
@@ -270,9 +285,10 @@ var PacketReader = function () {
         var data = {
             type: binaryReader.readByte(),
             channel: binaryReader.readString(),
-            length: binaryReader.readShort(),
-            data: binaryReader.readArray(),
+            length: binaryReader.readShort()            
         };
+
+        data.data = binaryReader.readArray(data.length);
 
         return { type: 'plugin_message', data: data };
     };

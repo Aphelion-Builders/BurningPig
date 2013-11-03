@@ -87,30 +87,6 @@ Player.prototype.getAbsoluteDelta = function () {
     return apos;
 };
 
-Player.prototype.addToInventory = function(item, packetWriter) {
-    if(!this.inventory[this.activeSlot]) {
-        this.inventory[this.activeSlot] = item;    
-    } else {
-        this.inventory[this.activeSlot].count += item.count;
-    }
-
-	console.log(item);
-	return;
-
-    var inventoryUpdate = packetWriter.build(0x67, {
-        windowId: 0,
-        slot: this.activeSlot,
-        entity: {
-            itemId: item.itemId,
-            count: this.inventory[this.activeSlot].count,
-            damage: item.damage || 0,
-            metaData: { length: -1 }
-        }
-    });
-
-    this.network.write(inventoryUpdate);
-};
-
 Player.prototype.updatePosition = function (newPosition) {
     var coordCheck = function (value, newValue) {
         return Math.abs(value - newValue) <= 100;
@@ -162,48 +138,13 @@ Player.prototype.updatePosition = function (newPosition) {
     return true;
 };
 
-Player.prototype.validateDigging = function (digInfo) {
-    this.digging.Stop = process.hrtime(this.digging.Start);
-
-    //TODO: really validate digging based on tool and block
-
-    if(this.digging.x !== digInfo.x ||
-       this.digging.y !== digInfo.y ||
-       this.digging.z !== digInfo.z ||
-       this.digging.face !== digInfo.face) {
-        return false;
-    }
-
-    return true;
-};
-
-Player.prototype.checkForPickups = function(worldEntities, packetWriter) {
-    //TODO: Fix Item Pickups after 1.4.6 change
-	return;
-
-    var pos = this.getAbsolutePosition();
-    var entities = worldEntities.getItemsInPickupRange({x: pos.x, y: pos.y, z: pos.z});
-
-    for (var entityIndex in entities) {
-        var entity = entities[entityIndex];
-        var pickupEntity = packetWriter.build(0x16, {
-            collectedId: entity.entityId,
-            collectorId: this.entityId
-        });
-
-        worldEntities.remove(entity.entityId);
-
-        this.network.write(pickupEntity);
-        this.addToInventory(entity, packetWriter);
-    }
-};
-
 Player.prototype.sendItemEntities = function(itemEntities, packetWriter) {
     var entities = itemEntities.getItemsInVisualRange({x: this.x, y: this.y, z: this.z});
 
     for (var entityIndex in entities) {
         var entity = entities[entityIndex];
-        var spawnEntity = packetWriter.build(0x15, {
+        var spawnEntity = packetWriter.build({
+            ptype: 0x15, 
             entityId: entity.entityId,
             itemId: entity.itemId,
             count: entity.count,
@@ -232,7 +173,8 @@ Player.prototype.sendPlayerEntities = function(playerEntities, packetWriter) {
         var entity = entities[entityIndex];
         if (this.entityId !== entity.entityId) {
             var absolutePosition = entity.getAbsolutePosition();
-            var namedEntity = packetWriter.build(0x14, {
+            var namedEntity = packetWriter.build({
+                ptype: 0x14, 
                 entityId: entity.entityId,
                 playerName: entity.name,
                 x: absolutePosition.x,
@@ -240,10 +182,12 @@ Player.prototype.sendPlayerEntities = function(playerEntities, packetWriter) {
                 z: absolutePosition.z,
                 yaw: absolutePosition.yaw,
                 pitch: absolutePosition.pitch,
-                currentItem: 0
+                currentItem: 0,
+                metadata: []
             });
             
-            var headLook = packetWriter.build(0x23, {
+            var headLook = packetWriter.build({
+                ptype: 0x23, 
                 entityId: entity.entityId,
                 headYaw: absolutePosition.yaw
             });

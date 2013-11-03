@@ -9,39 +9,31 @@ function TcpServer(world) {
 	    player.network = world.encryption.getEncryptor();
 	    player.decryptor = world.encryption.getDecryptor();
 	    
-	    player.network.pipe(stream);
-
-	    var packetStream = new PacketStream(player);
+	    var packetStream = new PacketStream(world, player);
 
 	    stream.on('connect', function () {
 	        console.log('Got connection!'.green);
 	        stream.isClosed = false;
 
-	        var baseStreamWrite = stream.write;
-	        stream.write = function () {
+	        //var baseStreamWrite = stream.write;
+	        //stream.write = function () {
 	            // I feel this is not the best way to do a safety check for an open socket before trying to write to it.
-	            if (stream.isClosed)
-	                return;
+	        //    if (stream.isClosed)
+	        //        return;
 
-	            baseStreamWrite.apply(stream, arguments);
-	        };
+	        //    baseStreamWrite.apply(stream, arguments);
+	        //};
 	    });
 
-	    stream.on('error', function () {
+		stream.on('error', function() {
+			console.log('Crash!');
+		});
+		
+        stream.on('destroy', function () {
 	        stream.isClosed = true;
 	    });
 
-	    stream.on('end', function () {
-	        stream.isClosed = true;
-	    });
-
-	    stream.on('destroy', function () {
-	        stream.isClosed = true;
-	    });
-
-	    world.setupListeners(packetStream);
-
-		stream.pipe(player.decryptor).pipe(packetStream);
+		player.network.pipe(stream).pipe(player.decryptor).pipe(packetStream);
 	});
 	
 	return server;

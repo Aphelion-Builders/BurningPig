@@ -30,7 +30,7 @@ var PacketWriter = function() {
   };
 
   builders[0x03] = function (data) {
-      var packet = new Packet(3 + data.message.length*2);
+      var packet = new Packet(1 + strLen(data.message));
 
       packet.writeByte(0x03)
             .writeString(data.message);
@@ -49,14 +49,7 @@ var PacketWriter = function() {
   };
 
   builders[0x05] = function (data) {
-      var size = 9;
-      if (data.item.blockId !== -1) {
-          size += 6;
-      };
-      if (data.item.metaData !== undefined && data.item.metaData.length !== -1) {
-          size += data.item.metaData.length;
-      }
-      var packet = new Packet(size);
+      var packet = new Packet(7 + slotLen(data.item));
 
       packet.writeByte(0x05)
             .writeInt(data.entityId)
@@ -78,12 +71,25 @@ var PacketWriter = function() {
   };
 
   builders[0x08] = function (data) {
-      var packet = new Packet(9);
+      var packet = new Packet(11);
 
       packet.writeByte(0x08)
-            .writeShort(data.health)
+            .writeFloat(data.health)
             .writeShort(data.food)
             .writeFloat(data.foodSaturation);
+
+      return packet;
+  };
+
+  builders[0x09] = function (data) {
+      var packet = new Packet(27);
+
+      packet.writeByte(0x09)
+            .writeInt(data.dimension)
+            .writeByte(data.difficulty)
+            .writeByte(data.gameMode)
+            .writeShort(data.worldHeight)
+            .writeString("default");
 
       return packet;
   };
@@ -99,6 +105,15 @@ var PacketWriter = function() {
             .writeFloat(data.yaw)
             .writeFloat(data.pitch)
             .writeBool(data.onGround);
+
+      return packet;
+  };
+
+  builders[0x10] = function (data) {
+      var packet = new Packet(3);
+
+      packet.writeByte(0x10)
+            .writeShort(data.slotId);
 
       return packet;
   };
@@ -127,7 +142,7 @@ var PacketWriter = function() {
   };
 
   builders[0x14] = function (data) {
-      var packet = new Packet(31 + data.playerName.length*2);
+      var packet = new Packet(29 + strLen(data.playerName) + metaLen(data.metadata));
 
       packet.writeByte(0x14)
             .writeInt(data.entityId)
@@ -138,7 +153,7 @@ var PacketWriter = function() {
             .writeByte(data.yaw)
             .writeByte(data.pitch)
             .writeShort(data.currentItem)
-            .writeMetaData();
+            .writeMetadata(data.metadata);
       return packet;
   };
 
@@ -186,12 +201,12 @@ var PacketWriter = function() {
            .writeShort(data.velocityX)
            .writeShort(data.velocityY)
            .writeShort(data.velocityZ)
-           .writeMetaData();
+           .writeMetadata();
       return packet;
   };
 
   builders[0x19] = function (data) {
-      var packet = new Packet(23 + data.title.length*2);
+      var packet = new Packet(21 + strLen(data.title));
 
       packet.writeByte(0x19)
             .writeInt(data.entityId)
@@ -311,21 +326,23 @@ var PacketWriter = function() {
   };
 
   builders[0x27] = function (data) {
-      var packet = new Packet(9);
+      var packet = new Packet(10);
 
       packet.writeByte(0x27)
             .writeInt(data.entityId)
-            .writeInt(data.vehicleId);
+            .writeInt(data.vehicleId)
+            .writeByte(data.leash);
+
       return packet;
   };
 
   builders[0x28] = function (data) {
-      var packet = new Packet(9);
+      var packet = new Packet(5 + metaLen(data.metadata));
 
       packet.writeByte(0x28)
             .writeInt(data.entityId)
-	        .writeMetaData(data.meteadata);
-			
+	        .writeMetadata(data.metadata);
+		
 	  return packet;
   };
 
@@ -356,6 +373,19 @@ var PacketWriter = function() {
             .writeFloat(data.experienceBar)
             .writeShort(data.level)
             .writeShort(data.totalExperience);
+      return packet;
+  };
+
+  builders[0x2C] = function (data) {
+      var packet = Packet(21 + (data.key.length * 2));
+
+      packet.writeByte(0x2C)
+            .writeInt(data.entityId)
+            .writeInt(1)  //TODO: Impliment sending mutliple Properties
+            .writeString(data.key)
+            .writeDouble(data.value)
+            .writeShort(0);
+
       return packet;
   };
 
@@ -442,8 +472,18 @@ var PacketWriter = function() {
       return packet;
   };
 
- // builders[0x3C] = function (data) {
- // };
+  builders[0x3C] = function (data) {
+      var packet = new Packet(18);
+
+      packet.writeByte(0x3C)
+            .writeDouble(data.x)
+            .writeDouble(data.y)
+            .writeDouble(data.z)
+            .writeFloat(data.radius)
+            .writeInt(0);  //TODO: Add explosion data
+
+      return packet;
+  };
 
   builders[0x3D] = function (data) {
       var packet = new Packet(18);
@@ -459,6 +499,34 @@ var PacketWriter = function() {
   };
 
   builders[0x3E] = function (data) {
+      var packet = new Packet(18 + strLen(data.soundName));
+
+      packet.writeByte(0x3E)
+            .writeString(data.soundName)
+            .writeInt(data.x)
+            .writeInt(data.y)
+            .writeInt(data.z)
+            .writeFloat(data.volume)
+            .writeByte(data.pitch);
+
+      return packet;   
+  };
+
+  builders[0x3F] = function (data) {
+      var packet = new Packet(32 + strLen(data.particleName));
+
+      packet.writeByte(0x3F)
+            .writeString(data.particleName)
+            .writeFloat(data.x)
+            .writeFloat(data.y)
+            .writeFloat(data.z)
+            .writeFloat(data.offsetX)
+            .writeFloat(data.offsetY)
+            .writeFloat(data.offsetZ)
+            .writeFloat(data.paticleSpeed)
+            .writeInt(data.particleCount);
+
+      return packet;   
   };
 
   builders[0x46] = function (data) {
@@ -482,8 +550,19 @@ var PacketWriter = function() {
       return packet;
   };
 
- // builders[0x64] = function (data) {
- // };
+  builders[0x64] = function (data) {
+      var packet = new Packet(6 + strLen(data.particleName));
+
+      packet.writeByte(0x64)
+            .writeByte(data.windowId)
+            .writeByte(data.inventoryType)
+            .writeString(data.windowTitle)
+            .writeByte(data.slotCount)
+            .writeBool(data.useCustomTitle)
+            .writeInt(data.entityId);
+
+      return packet;
+  };
 
   builders[0x65] = function (data) {
       var packet = new Packet(2);
@@ -493,8 +572,19 @@ var PacketWriter = function() {
       return packet;
   };
 
- // builders[0x66] = function (data) {
- // };
+  builders[0x66] = function (data) {
+      var packet = new Packet(22);
+
+      packet.writeByte(0x66)
+            .writeByte(data.windowId)
+            .writeShort(data.slot)
+            .writeByte(data.button)
+            .writeShort(data.actionNumber)
+            .writeByte(data.mode)
+            .writeSlotInt(data.clickedItem);
+
+      return packet;
+  };
 
   builders[0x67] = function (data) {
       var packet = new Packet(11);
@@ -511,7 +601,7 @@ var PacketWriter = function() {
 
       packet.writeByte(0x68)
             .writeByte(data.windowId)
-            .writeShort(data.slot)
+            .writeShort(1) //TODO: send all items at once
             .writeSlot(data.entity);
       return packet;      
   };
@@ -536,6 +626,16 @@ var PacketWriter = function() {
       return packet;
   };
 
+  builders[0x6B] = function (data) {
+      var packet = new Packet(17);
+
+      packet.writeByte(0x6B)
+            .writeShort(data.slot)
+            .writeSlot(data.clickedItem);
+            
+      return packet;
+  };
+
   builders[0x6C] = function (data) {
       var packet = new Packet(3);
 
@@ -546,7 +646,7 @@ var PacketWriter = function() {
   };
 
   builders[0x82] = function (data) {
-      var packet = new Packet(19 + data.text1.length*2 + data.text2.length*2 + data.text3.length*2 + data.text4.length*2);
+      var packet = new Packet(11 + strLen(data.text1) + strLen(data.text2) + strLen(data.text3) + strLen(data.text4));
 
       packet.writeByte(0x82)
             .writeInt(data.x)
@@ -559,23 +659,44 @@ var PacketWriter = function() {
       return packet;
   };
 
-// builders[0x83] = function (data) {
-// };
-//
+ builders[0x83] = function (data) {
+      var packet = new Packet(7);
+
+      packet.writeByte(0x83)
+            .writeShort(data.itemType)
+            .writeShort(data.itemId)
+            .writeShort(0);
+
+      return packet;
+ };
+
 // builders[0x84] = function (data) {
 // };
 
+ builders[0x85] = function (data) {
+      var packet = new Packet(14);
+
+      packet.writeByte(0x85)
+            .writeByte(data.tileEntityId)
+            .writeInt(data.x)
+            .writeInt(data.y)
+            .writeInt(data.z);
+            
+      return packet;
+ };
+
+
   builders[0xC8] = function (data) {
-      var packet = new Packet(6);
+      var packet = new Packet(9);
 
       packet.writeByte(0xC8)
             .writeInt(data.statistic)
-            .writeBool(data.amount);
+            .writeInt(data.amount);
       return packet;
   };
 
   builders[0xC9] = function (data) {
-      var packet = new Packet(6 + data.playerName.length *2);
+      var packet = new Packet(4 + strLen(data.playerName));
 
       packet.writeByte(0xC9)
             .writeString(data.playerName)
@@ -589,16 +710,58 @@ var PacketWriter = function() {
 
       packet.writeByte(0xCA)
             .writeByte(data.flags)
-            .writeByte(data.flyingSpeed)
-            .writeByte(data.walkingSpeed);
+            .writeFloat(data.flyingSpeed)
+            .writeFloat(data.walkingSpeed);
       return packet;
   };
 
- // builders[0xCB] = function (data) {
- // };
+ builders[0xCB] = function (data) {
+       var packet = new Packet(1 + strLen(data.playerName));
+
+      packet.writeByte(0xCB)
+            .writeString(data.text);
+
+      return packet;
+  };
+
+  builders[0xCE] = function (data) {
+       var packet = new Packet(2 + strLen(data.objectiveName) + strLen(data.objectiveValue));
+
+      packet.writeByte(0xCE)
+            .writeString(data.objectiveName)
+            .writeString(data.objectiveValue)
+            .writeByte(data.action);
+
+      return packet;
+  };
+
+  builders[0xCF] = function (data) {
+       var packet = new Packet(6 + strLen(data.itemName) + strLen(data.scoreName));
+
+      packet.writeByte(0xCE)
+            .writeString(data.itemName)
+            .writeByte(data.action)
+            .writeString(data.scoreName)
+            .writeInt(data.value);
+
+      return packet;
+  };
+
+  builders[0xD0] = function (data) {
+       var packet = new Packet(2 + strLen(data.scoreName));
+
+      packet.writeByte(0xD0)
+            .writeByte(data.position)
+            .writeString(data.scoreName);
+
+      return packet;
+  };
+
+  //builders[0xD1] = function (data) {
+  //};
 
   builders[0xFA] = function (data) {
-      var packet = new Packet(5 + (data.channel.length*2) + data.dataLength);
+      var packet = new Packet(3 + strLen(data.channel) + data.dataLength);
 
       packet.writeByte(0xFA)
             .writeString(data.channel)
@@ -618,7 +781,7 @@ var PacketWriter = function() {
   };
 
   builders[0xFD] = function (data) {
-      var packet = new Packet(7 + data.serverId.length*2 + data.publicKey.length + data.token.length);
+      var packet = new Packet(5 + strLen(data.serverId) + data.publicKey.length + data.token.length);
 
       packet.writeByte(0xFD)
             .writeString(data.serverId)
@@ -630,7 +793,7 @@ var PacketWriter = function() {
   };
     
   builders[0xFF] = function (data) {
-    var packet = new Packet(3 + data.serverStatus.length*2);
+    var packet = new Packet(1 + strLen(data.serverStatus));
 
     packet.writeByte(0xFF)
           .writeString(data.serverStatus);
@@ -638,14 +801,58 @@ var PacketWriter = function() {
     return packet;
   };
   
-  self.build = function(type, data) {
-    if( !builders.hasOwnProperty(type)) {
-      console.log('Unknown packet to build: ' + type);
+  self.build = function(data) {
+    if( !builders.hasOwnProperty(data.ptype)) {
+      console.log('Unknown packet to build: ' + data.ptype);
+      console.log(data);
       return new Buffer(0);
     }
     
-    return builders[type](data).result();
+    return builders[data.ptype](data).result();
   };
+};
+
+function strLen(str) {
+    return (str.length*2)+2;
+};
+
+function slotLen(data) {
+    if(data.itemId === -1)
+        return 2;
+
+	return data.nbtlength === -1 ? 7 : 7 + data.nbtlength;    
+};
+
+function metaLen(data) {
+    if(data.length===0) {
+        return 3;
+    }
+
+    var size = 0;
+    for(var i=0,j=data.length;i<j;i++) {
+        size++;
+        switch(data[i].type) {
+            case 0:
+                size++;
+                break;
+            case 1:
+                size+=2;
+                break;
+            case 2:
+            case 3:
+                size+=4;
+                break;
+            case 4:
+                size+=(2 + strLen(data[i].data));
+                break;
+            case 5:
+                size+=slotLen(data[i].data);
+                break;
+        };
+    }
+
+	size++;
+    return size;
 };
 
 module.exports = PacketWriter;

@@ -1,12 +1,12 @@
 
 var EntityCollection = function() {
-	var self = this;
-
 	this.entities = [];
+	this.itemcount = 0;
 };
 
 EntityCollection.prototype.add = function(item) {
-	this.entities.push(item);
+	this.entities[item.entityId] = item;
+	this.itemcount++;
 };
 
 EntityCollection.prototype.remove = function(itemId) {
@@ -14,14 +14,8 @@ EntityCollection.prototype.remove = function(itemId) {
 		return item.entityId===itemId;
 	};
 
-	var itemToRemove = this.entities.filter(idFilter);
-	var index = this.entities.indexOf(itemToRemove[0]);
-	if(index===-1) {
-		console.log('couldnt find entity');
-		return;		
-	}		
-
-	return this.entities.splice(index);
+	delete this.entities[itemId];
+	this.itemcount--;
 };
 
 EntityCollection.prototype.getAll = function() {
@@ -29,7 +23,7 @@ EntityCollection.prototype.getAll = function() {
 }
 
 EntityCollection.prototype.count = function() {
-	return this.entities.length;
+	return this.itemcount;
 }
 
 EntityCollection.prototype.getItemsInVisualRange = function(position) {
@@ -54,8 +48,7 @@ EntityCollection.prototype.getItemsInPickupRange = function(position) {
 			ys = ys * ys;
 		var zs = item.z - position.z;
 			zs = zs * zs;
-			console.log(xs+ys+zs);
-			return xs+ys+zs < 4800; //TODO: Need to get the correct value for this
+			return xs+ys+zs < 2200; //TODO: Need to get the correct value for this
 	};
 
 	return this.entities.filter(pickupDistanceFilter);
