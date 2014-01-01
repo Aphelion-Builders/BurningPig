@@ -1,3 +1,5 @@
+var packets = require('../network/packetList').serverPackets;
+
 var TimeHandler = function(world) {
 
     var dayTime = new Buffer(8);
@@ -14,22 +16,23 @@ var TimeHandler = function(world) {
         dayTime.fill(0);
         dayTime.writeUInt16BE(timeLow % 24000, 6);
 
-        var time = world.packetWriter.build({ ptype: 0x04, time: world.worldTime, daytime: dayTime });
+        var time = world.packetWriter.build({ ptype: packets.TimeUpdate, worldAge: world.worldTime, time: dayTime });
         world.packetSender.sendToAllPlayers(time);
 
         var packetLength = 0;
         
-        world.playerEntities.getAll().forEach(function (player, idx) {
-            var cPing = player.getPing();
+        // world.playerEntities.getAll().forEach(function (player, idx) {
+        //     var cPing = player.getPing();
 
-            var playerlist = world.packetWriter.build({
-                ptype: 0xC9,
-                playerName: player.name,
-                online: true,
-                ping:  cPing > 0x7FFF ? 0x7FFF : cPing
-            });
-            world.packetSender.sendToAllPlayers(playerlist);
-        });
+        //     var playerlist = world.packetWriter.build({
+        //         ptype: packets.PlayerListItem,
+        //         playerName: player.name,
+        //         online: true,
+        //         ping:  cPing > 0x7FFF ? 0x7FFF : cPing
+        //     });
+        //     console.log(playerlist);
+        //     world.packetSender.sendToAllPlayers(playerlist);
+        // });
     });
 };
 

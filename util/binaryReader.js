@@ -1,7 +1,8 @@
-﻿//Helpers to parse & write the buffers.  Java uses big endian for its numbers.
+﻿//Helpers to parse & write the buffers. Minecraft(Java) uses big endian for its numbers.
 
 var util = require('util');
 var int64 = require('node-int64');
+var varint = require('varint');
 
 var BinaryReader = function (buffer, start) {
     var self = this;
@@ -28,17 +29,15 @@ var BinaryReader = function (buffer, start) {
     };
 
     self.readString = function () {
-        needs(2);
-        var length = buffer.readUInt16BE(cursor.pos);
-        cursor.pos += 2;
-        needs(length * 2);
-        var result = new Buffer(length);
-        for (var i = 0; i < length; i++) {
-            result[i] = buffer.readUInt8(cursor.pos + (i * 2) + 1);
-        }
+        var stringLength = varint.decode(buffer.slice(cursor.pos, cursor.pos+8));
+        var stringLengthBytes = varint.decode.bytesRead;
 
-        cursor.pos += length * 2;
-        return result.toString();
+        needs(stringLength);
+        cursor.pos += stringLengthBytes;
+        var result = buffer.toString('utf8', cursor.pos, cursor.pos + stringLength);
+
+        cursor.pos += result.length;
+        return result;
     };
 
     self.readByte = function () {
@@ -62,6 +61,13 @@ var BinaryReader = function (buffer, start) {
         return value;
     };
 
+    self.readUShort = function () {
+        needs(2);
+        var value = buffer.readUInt16BE(cursor.pos);
+        cursor.pos += 2;
+        return value;
+    };
+
     self.readInt = function () {
         needs(4);
         var value = buffer.readInt32BE(cursor.pos);
@@ -80,6 +86,13 @@ var BinaryReader = function (buffer, start) {
         needs(8);
         var value = buffer.readDoubleBE(cursor.pos);
         cursor.pos += 8;
+        return value;
+    };
+
+    self.readVarint = function () {
+        needs(1);
+        var value = varint.decode(buffer.slice(cursor.pos, cursor.pos+8));
+        cursor.pos += varint.decode.bytesRead;
         return value;
     };
 

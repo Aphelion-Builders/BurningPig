@@ -1,12 +1,18 @@
-﻿var BinaryReader = require('../util/binaryReader'),
+﻿var varint = require('varint'),
+    BinaryReader = require('../util/binaryReader'),
+    packets = require('./packetList').clientPackets,
+    statusPackets = require('./packetList').clientStatusPackets,
+    loginPackets = require('./packetList').clientLoginPackets,
     util = require('util');
 
 var PacketReader = function () {
     var self = this;
 
-    var parsers = [];
+    var parsers = {};
+    var statusParsers = {};
+    var loginParsers = {};
 
-    parsers[0x00] = function (binaryReader) {
+    parsers[packets.KeepAlive] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             keepAliveId: binaryReader.readInt()
@@ -15,19 +21,7 @@ var PacketReader = function () {
         return { type: 'keepalive', data: data };
     };
 
-    parsers[0x02] = function (binaryReader) {
-        var data = {
-            type: binaryReader.readByte(),
-            protocol: binaryReader.readByte(),
-            username: binaryReader.readString(),
-            server: binaryReader.readString(),
-            serverPort: binaryReader.readInt()
-        };
-
-        return { type: 'handshake', data: data };
-    };
-
-    parsers[0x03] = function (binaryReader) {
+    parsers[packets.ChatMessage] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             message: binaryReader.readString()
@@ -36,18 +30,17 @@ var PacketReader = function () {
         return { type: 'chat_message', data: data };
     };
 
-    parsers[0x07] = function (binaryReader) {
+    parsers[packets.UseEntity] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
-            user: binaryReader.readInt(),
             target: binaryReader.readInt(),
-            mouseButton: binaryReader.readBool()
+            mouse: binaryReader.readByte()
         };
 
         return { type: 'use_entity', data: data };
     };
 
-    parsers[0x0A] = function (binaryReader) {
+    parsers[packets.Player] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             onGround: binaryReader.readBool(),
@@ -56,12 +49,12 @@ var PacketReader = function () {
         return { type: 'player_base', data: data };
     };
 
-    parsers[0x0B] = function (binaryReader) {
+    parsers[packets.PlayerPosition] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             x: binaryReader.readDouble(),
-            y: binaryReader.readDouble(),
             stance: binaryReader.readDouble(),
+            y: binaryReader.readDouble(),
             z: binaryReader.readDouble(),
             onGround: binaryReader.readBool(),
         };
@@ -69,7 +62,7 @@ var PacketReader = function () {
         return { type: 'player_position', data: data };
     };
 
-    parsers[0x0C] = function (binaryReader) {
+    parsers[packets.PlayerLook] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             yaw: binaryReader.readFloat(),
@@ -80,12 +73,13 @@ var PacketReader = function () {
         return { type: 'player_look', data: data };
     };
 
-    parsers[0x0D] = function (binaryReader) {
+
+    parsers[packets.PlayerPositionAndLook] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             x: binaryReader.readDouble(),
-            y: binaryReader.readDouble(),
             stance: binaryReader.readDouble(),
+            y: binaryReader.readDouble(),
             z: binaryReader.readDouble(),
             yaw: binaryReader.readFloat(),
             pitch: binaryReader.readFloat(),
@@ -95,7 +89,8 @@ var PacketReader = function () {
         return { type: 'player_position_look', data: data };
     };
 
-    parsers[0x0E] = function (binaryReader) {
+
+    parsers[packets.PlayerDigging] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             status: binaryReader.readByte(),
@@ -105,12 +100,12 @@ var PacketReader = function () {
             face: binaryReader.readByte(),
         };
 
-        var types = [ 'digging_start', 'digging_cancelled', 'digging_done'];
+        var types = [ 'digging_start', 'digging_cancelled', 'digging_done', 'drop_item_stack', 'drop_item', 'shoot_eating'];
 
         return { type: types[data.status], data: data };
     };
 
-    parsers[0x0F] = function (binaryReader) {
+    parsers[packets.PlayerBlockPlacement] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             x: binaryReader.readInt(),
@@ -126,7 +121,7 @@ var PacketReader = function () {
         return { type: 'player_block_placement', data: data };
     };
 
-    parsers[0x10] = function (binaryReader) {
+    parsers[packets.HeldItemChange] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             slotId: binaryReader.readShort(),
@@ -135,7 +130,7 @@ var PacketReader = function () {
         return { type: 'held_item_change', data: data };
     };
 
-    parsers[0x12] = function (binaryReader) {
+    parsers[packets.Animation] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             entityId: binaryReader.readInt(),
@@ -145,7 +140,7 @@ var PacketReader = function () {
         return { type: 'animation', data: data };
     };
 
-    parsers[0x13] = function (binaryReader) {
+    parsers[packets.EntityAction] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             entityId: binaryReader.readInt(),
@@ -156,7 +151,7 @@ var PacketReader = function () {
         return { type: 'entity_action', data: data };
     };
 
-    parsers[0x1B] = function (binaryReader) {
+    parsers[packets.SteerVehicle] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             sideways: binaryReader.readFloat(),
@@ -168,7 +163,7 @@ var PacketReader = function () {
         return { type: 'steer_vehicle', data: data };
     };
 
-    parsers[0x65] = function (binaryReader) {
+    parsers[packets.CloseWindow] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             windowId: binaryReader.readByte(),
@@ -177,21 +172,21 @@ var PacketReader = function () {
         return { type: 'close_window', data: data };
     };
 
-    parsers[0x66] = function (binaryReader) {
+    parsers[packets.ClickWindow] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             windowId: binaryReader.readByte(),
             slot: binaryReader.readShort(),
-            rightClick: binaryReader.readBool(),
+            button: binaryReader.readByte(),
             actionNumber: binaryReader.readShort(),
-            shift: binaryReader.readBool(),
+            mode: binaryReader.readByte(),
             clickedItem: binaryReader.readSlot(),
         };
 
         return { type: 'click_window', data: data };
     };
 
-    parsers[0x6A] = function (binaryReader) {
+    parsers[packets.ConfirmTransaction] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             windowId: binaryReader.readByte(),
@@ -202,7 +197,7 @@ var PacketReader = function () {
         return { type: 'confirm_transaction', data: data };
     };
 
-    parsers[0x6B] = function (binaryReader) {
+    parsers[packets.CreativeInventoryAction] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             slot: binaryReader.readShort(),
@@ -212,7 +207,7 @@ var PacketReader = function () {
         return { type: 'creative_inventory_action', data: data };
     };
 
-    parsers[0x6C] = function (binaryReader) {
+    parsers[packets.EnchantItem] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             windowId: binaryReader.readByte(),
@@ -222,7 +217,7 @@ var PacketReader = function () {
         return { type: 'enchant_item', data: data };
     };
 
-    parsers[0x82] = function (binaryReader) {
+    parsers[packets.UpdateSign] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             x: binaryReader.readInt(),
@@ -237,7 +232,7 @@ var PacketReader = function () {
         return { type: 'update_sign', data: data };
     };
 
-    parsers[0xCA] = function (binaryReader) {
+    parsers[packets.PlayerAbilities] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             flags: binaryReader.readByte(),
@@ -248,7 +243,7 @@ var PacketReader = function () {
         return { type: 'player_abilities', data: data };
     };
 
-    parsers[0xCB] = function (binaryReader) {
+    parsers[packets.TabComplete] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             text: binaryReader.readString(),
@@ -257,29 +252,30 @@ var PacketReader = function () {
         return { type: 'tab_complete', data: data };
     };
 
-    parsers[0xCC] = function (binaryReader) {
+    parsers[packets.ClientSettings] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
             locale: binaryReader.readString(),
             viewDistance: binaryReader.readByte(),
             chatFlags: binaryReader.readByte(),
+            chatColors: binaryReader.readBool(),
             difficulty: binaryReader.readByte(),
             showCape: binaryReader.readBool()
         };
 
-        return { type: 'locale_view_distance', data: data };
+        return { type: 'client_settings', data: data };
     };
 
-    parsers[0xCD] = function (binaryReader) {
+    parsers[packets.ClientStatus] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
-            payload: binaryReader.readByte(),
+            actionId: binaryReader.readByte(),
         };
 
-        return { type: 'client_statuses',  data: data };
+        return { type: 'client_status',  data: data };
     };
 
-    parsers[0xFA] = function (binaryReader) {
+    parsers[packets.PluginMessage] = function (binaryReader) {
         console.log('Got Plugin Message');
 
         var data = {
@@ -293,9 +289,35 @@ var PacketReader = function () {
         return { type: 'plugin_message', data: data };
     };
 
-    parsers[0xFC] = function (binaryReader) {
+    statusParsers[statusPackets.Request] = function (binaryReader) {
+        var data = {
+            type: binaryReader.readVarint(),
+        }
+
+        return { type: 'status_request', data: data };
+    };
+
+    statusParsers[statusPackets.Ping] = function (binaryReader) {
         var data = {
             type: binaryReader.readByte(),
+            time: binaryReader.readArray(8),
+        }
+
+        return { type: 'status_ping', data: data };
+    };
+
+    loginParsers[loginPackets.LoginStart] = function (binaryReader) {
+        var data = {
+            type: binaryReader.readVarint(),
+            name: binaryReader.readString(),
+        }
+
+        return { type: 'login_start', data: data };
+    };
+
+    loginParsers[loginPackets.EncryptionResponse] = function (binaryReader) {
+        var data = {
+            type: binaryReader.readVarint(),
             sharedSecretLength: binaryReader.readShort(),
         };
 
@@ -306,31 +328,57 @@ var PacketReader = function () {
         return { type: 'encryption_response', data: data };
     };
 
-    parsers[0xFE] = function (binaryReader) {
-        var data = { 
-            type: binaryReader.readByte(),
-            value: binaryReader.readByte()
-        };
-
-        return { type: 'server_list_ping', data: data };
-    };
-
-    parsers[0xFF] = function (binaryReader) {
+    self.parseHandsake = function (binaryReader) {
         var data = {
-            type: binaryReader.readByte(),
-            reason: binaryReader.readString(),
+            type: binaryReader.readVarint(),
+            protocolVersion: binaryReader.readVarint(),
+            serverAddress: binaryReader.readString(),
+            serverPort: binaryReader.readUShort(),
+            nextState: binaryReader.readVarint()
         };
 
-        return { type : 'disconnect', data: data };
+        return { type : 'handshake', data: data };
     };
 
-    self.parse = function (inputBuffer) {
-        var type = inputBuffer[0];
+    self.parse = function (inputBuffer, packetStream) {
+        var packetLength = varint.decode(inputBuffer.slice(0,8));
+        var lenStart = varint.decode.bytesRead;
+        var type = varint.decode(inputBuffer.slice(lenStart,lenStart+8));
+
+        var binaryReader = new BinaryReader(inputBuffer, lenStart);
+
+        if(packetStream.state == 0 && type == 0) {
+            var packet = self.parseHandsake(binaryReader, packetStream);
+            self.bufferUsed = binaryReader.getPosition();
+            packetStream.state = packet.data.nextState;
+            console.log('Next state:' + packet.data.nextState);
+            return packet;
+        }
+
+        if(packetStream.state == 1) {
+            if (!statusParsers.hasOwnProperty(type)) {
+                return { data: {}, error: util.format('unknown status type: %s'.red, type.toString(16)) };
+            }
+    
+            var packet = statusParsers[type](binaryReader);
+            self.bufferUsed = binaryReader.getPosition();
+            return packet;
+        }
+
+        if(packetStream.state == 2) {
+            if (!loginParsers.hasOwnProperty(type)) {
+                return { data: {}, error: util.format('unknown login type: %s'.red, type.toString(16)) };
+            }
+    
+            var packet = loginParsers[type](binaryReader);
+            self.bufferUsed = binaryReader.getPosition();
+            return packet;
+        }
+
         if (!parsers.hasOwnProperty(type)) {
             return { data: {}, error: util.format('unknown type: %s'.red, type.toString(16)) };
         }
 
-        var binaryReader = new BinaryReader(inputBuffer);
         var packet = parsers[type](binaryReader);
         self.bufferUsed = binaryReader.getPosition();
         return packet;

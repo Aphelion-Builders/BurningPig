@@ -1,9 +1,13 @@
 ﻿var util = require('util');
 var int64 = require('node-int64');
+var varint = require('varint');
 
 var Packet = function(size) {
-  this.buffer = new Buffer(size);
+  var packetLength = varint.encode(size);
+  this.buffer = new Buffer(size + packetLength.length);
   this.cursor = 0;
+  new Buffer(packetLength).copy(this.buffer, this.cursor);
+  this.cursor += packetLength.length;
 };
 
 Packet.prototype.result = function() {
@@ -16,11 +20,10 @@ Packet.prototype.getPosition = function() {
 
 Packet.prototype.writeString = function (data) {
     var stringBuf = new Buffer(data, 'binary');
+    var length = varint.encode(data.length);
 
-    this.writeShort(data.length);
-    for (var i = 0; i < data.length; i++) {
-        this.writeShort(stringBuf[i]);
-    }
+    this.writeArray(new Buffer(length));
+    this.writeArray(stringBuf);
 
     return this;
 };
@@ -28,6 +31,12 @@ Packet.prototype.writeString = function (data) {
 Packet.prototype.writeArray = function (data) {
     data.copy(this.buffer, this.cursor);
     this.cursor += data.length;
+    return this;
+  };
+
+Packet.prototype.writeVarint = function (data) {
+    var value = varint.encode(data);
+    this.writeArray(new Buffer(value));
 	return this;
   };
 
